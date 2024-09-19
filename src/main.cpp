@@ -218,10 +218,13 @@ int main()
         int down=     local->getInt("down");
         if (down)
         {
+            for (int j = 0;j<50;j++)
+            {
             count++;
             Pointer *buffer = NEW_POINTER(count);
             buffer->value=(void*) new Bunny();
             list->add(buffer);
+            }
         }
 
        // local->print();

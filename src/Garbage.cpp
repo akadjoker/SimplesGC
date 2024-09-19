@@ -140,7 +140,7 @@ void Factory::mark()
     }
 
     //  std::cout << "Total objects: " << roots.size() << " to mark" << std::endl;
-    std::deque<Object *> worklist(roots.begin(), roots.end()); // Usar deque para FIFO
+    std::deque<Object *> worklist(roots.begin(), roots.end()); // 
 
     while (!worklist.empty())
     {

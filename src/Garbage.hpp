@@ -321,7 +321,7 @@ struct Scope : Object
             std::cout << it->first << " : " << it->second->toString() << std::endl;
         }
     }
-    bool define(std::string name, Object* obj) 
+    bool define(const std::string &name, Object* obj) 
     {
         values[name] = obj;
         return true;
@@ -338,7 +338,7 @@ struct Scope : Object
     std::string getString(const std::string &name);
     double      getReal(const std::string &name);
 
-    Object *lookup(std::string name)
+    Object *lookup(const std::string &name)
     {
         auto it = values.find(name);
         if (it != values.end())
@@ -347,7 +347,7 @@ struct Scope : Object
             return parent->lookup(name);
         return nullptr;
     }
-    bool tryLookup(std::string name, Object** obj) 
+    bool tryLookup(const std::string &name, Object** obj) 
     {
         auto it = values.find(name);
         if (it != values.end())
@@ -359,7 +359,7 @@ struct Scope : Object
             return parent->tryLookup(name, obj);
         return false;
     }
-    bool assign(std::string name, Object* obj)
+    bool assign(const std::string &name, Object* obj)
     {
         auto it = values.find(name);
         if (it != values.end())
