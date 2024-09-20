@@ -1,22 +1,65 @@
 #include "pch.h"
 #include "Garbage.hpp"
+#include <time.h>
 
-//**************************************************************************** */
+size_t GC_DYNAMIC_THRESHOLD = 2024*8;
+clock_t lastCollectTime = 0;
+const size_t collectFrequency = 100;
+
+size_t adjustThreshold()
+{
+    clock_t currentTime = clock();
+    double elapsedTime = (double)(currentTime - lastCollectTime) * 1000.0 / CLOCKS_PER_SEC;
+
+    if (elapsedTime < collectFrequency)
+    {
+
+        lastCollectTime = currentTime;
+        return GC_DYNAMIC_THRESHOLD * 1.5;
+    }
+    else
+    {
+
+        lastCollectTime = currentTime;
+        return GC_DYNAMIC_THRESHOLD / 1.2;
+    }
+}
+
 void *Arena::allocate(size_t size)
 {
-    void *p = std::malloc(size);
-    if (this->_size > GC_THRESHOLD)
+
+     if (currentOffset + size > blockSize) 
+     {
+        allocateNewBlock();   
+    }
+
+    void* p = currentBlock + currentOffset;  
+    currentOffset += size;  
+    this->_size += size;
+
+    if (this->_size > GC_DYNAMIC_THRESHOLD)
     {
         Factory::as().collect();
+        GC_DYNAMIC_THRESHOLD = adjustThreshold();
     }
-    this->_size += size;
+
     return p;
 }
 
 void Arena::free(void *p, size_t size)
 {
     this->_size -= size;
-    std::free(p);
+   // std::free(p);
+}
+
+void Arena::allocateNewBlock()
+{
+    currentBlock = static_cast<char *>(std::malloc(blockSize)); 
+    if (currentBlock)
+    {
+        blocks.push_back(currentBlock); 
+        currentOffset = 0;             
+    }
 }
 
 //**************************************************************************** */
@@ -60,8 +103,8 @@ int Scope::getInt(const std::string &name)
         {
             return static_cast<Integer *>(obj)->value;
         }
-     }
-     std::cout<< "Not an integer" << std::endl;
+    }
+    std::cout << "Not an integer" << std::endl;
     return 0;
 }
 
@@ -78,7 +121,6 @@ double Scope::getReal(const std::string &name)
     return 0;
 }
 
-
 std::string Scope::getString(const std::string &name)
 {
     Object *obj;
@@ -91,7 +133,6 @@ std::string Scope::getString(const std::string &name)
     }
     return "";
 }
-
 
 //**************************************************************************** */
 // Factory
@@ -130,7 +171,6 @@ std::string Scope::getString(const std::string &name)
 
 /// fifo
 
-
 void Factory::mark()
 {
     if (roots.empty())
@@ -140,7 +180,7 @@ void Factory::mark()
     }
 
     //  std::cout << "Total objects: " << roots.size() << " to mark" << std::endl;
-    std::deque<Object *> worklist(roots.begin(), roots.end()); // 
+    std::deque<Object *> worklist(roots.begin(), roots.end()); //
 
     while (!worklist.empty())
     {
@@ -167,16 +207,16 @@ void Factory::mark()
                 {
                     worklist.push_back(scope->parent);
                 }
-            } else if (obj->type==ObjectType::LIST)
+            }
+            else if (obj->type == ObjectType::LIST)
             {
-                List *list =static_cast<List *>(obj);
-              //  std::cout << "List " << list->size() << std::endl;
-                    for (int i = 0; i < list->size(); i++)
-                    {
-                        Object *value = list->get(i);
-                        worklist.push_back(value);
-
-                    }
+                List *list = static_cast<List *>(obj);
+                //  std::cout << "List " << list->size() << std::endl;
+                for (int i = 0; i < list->size(); i++)
+                {
+                    Object *value = list->get(i);
+                    worklist.push_back(value);
+                }
             }
         }
     }
@@ -189,8 +229,8 @@ void Factory::sweep()
         std::cout << "Nothing to collect" << std::endl;
         return;
     }
-    std::cout << "Total objects: " << objects.size() << " to collect" << std::endl;
-    std::cout << "Total memory used: " << Arena::as().size() << " bytes." << std::endl;
+    //    std::cout << "Total objects: " << objects.size() << " to collect" << std::endl;
+    //   std::cout << "Total memory used: " << Arena::as().size() << " bytes." << std::endl;
 
     auto it = objects.begin();
     while (it != objects.end())
@@ -203,7 +243,7 @@ void Factory::sweep()
         }
         else
         {
-             it = objects.erase(it);
+            it = objects.erase(it);
             // std::cout << "GC " << object->toString() << std::endl;
             this->free(object);
         }
@@ -262,17 +302,18 @@ void Factory::free(Object *obj)
         p->value = nullptr;
         p->~Pointer();
         Arena::as().free(p, sizeof(Pointer));
-    } else if (obj->type == ObjectType::LIST)
+    }
+    else if (obj->type == ObjectType::LIST)
     {
         List *l = static_cast<List *>(obj);
         l->~List();
         Arena::as().free(l, sizeof(List));
-    } else if (obj->type == ObjectType::MAP)
+    }
+    else if (obj->type == ObjectType::MAP)
     {
         Map *m = static_cast<Map *>(obj);
         m->~Map();
         Arena::as().free(m, sizeof(Map));
-        
     }
     else if (obj->type == ObjectType::SCOPE)
     {
@@ -293,13 +334,14 @@ void Factory::setOnDelete(OnDeleteFunction function)
 {
     if (function != nullptr)
         onDelete = function;
-    else 
+    else
         onDelete = defaultOnDelete;
 }
 
 Factory::Factory()
 {
     onDelete = defaultOnDelete;
+    objects.reserve(GC_THRESHOLD);
 }
 
 Factory::~Factory()
@@ -318,7 +360,7 @@ Object *List::get(int index)
         return nullptr;
     if (index < 0 || index >= (int)values.size())
     {
-       std::cout << "Index out ["<<index<<"] of bounds" << std::endl;
+        std::cout << "Index out [" << index << "] of bounds" << std::endl;
         return nullptr;
     }
     return values[index];
@@ -355,7 +397,7 @@ bool List::erase(int index)
 {
     if (index < 0 || index >= (int)values.size())
     {
-        std::cout << "Index out ["<<index<<"] of bounds" << std::endl;
+        std::cout << "Index out [" << index << "] of bounds" << std::endl;
         return false;
     }
     values.erase(values.begin() + index);
