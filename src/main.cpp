@@ -127,7 +127,7 @@ struct Bunny
 
     ~Bunny()
     {
-        std::cout << "Bunny deleted" << std::endl;
+       // std::cout << "Bunny deleted" << std::endl;
     }
 };
 

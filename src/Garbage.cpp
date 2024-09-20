@@ -2,7 +2,7 @@
 #include "Garbage.hpp"
 #include <time.h>
 
-size_t GC_DYNAMIC_THRESHOLD = 2024*8;
+size_t GC_DYNAMIC_THRESHOLD = 2024*2;
 clock_t lastCollectTime = 0;
 const size_t collectFrequency = 100;
 
